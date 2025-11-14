@@ -70,7 +70,7 @@ class MCDCAnalyzer:
           各条件が結果に影響を与える組み合わせをテストする
         """
         # 条件を分割
-        sub_conditions = self._split_conditions(condition)
+        sub_conditions = self._split_conditions_detailed(condition)
         num_conditions = len(sub_conditions)
 
         # 2つの条件を持つ複合式の場合（最も一般的）
@@ -91,7 +91,7 @@ class MCDCAnalyzer:
                 ]
 
         # 3つ以上の条件を持つ場合（複雑な式）
-        # 完全なMC/DCカバレッジのため、全ての組み合わせを生成
+        # 完全なMC/DCカバレッジのため、適切な組み合わせを生成
         truth_combinations = []
 
         if '||' in condition and '&&' not in condition:
@@ -120,12 +120,268 @@ class MCDCAnalyzer:
 
         else:
             # ANDとORが混在する場合（最も複雑）
-            # 完全な真偽表を生成
+            # MC/DCカバレッジを満たすテストケースを生成
+            truth_combinations = self._generate_mcdc_for_mixed_condition(condition, sub_conditions)
+
+        return truth_combinations if truth_combinations else [(condition, ["T", "F"])]
+
+    def _generate_mcdc_for_mixed_condition(self, condition: str, sub_conditions: List[str]) -> List[Tuple[str, List[str]]]:
+        """
+        ANDとORが混在する複雑な条件式のMC/DCテストケースを生成する
+
+        A && (B1 || B2 || ... || Bn) && C のような構造を検出して、MC/DCカバレッジを満たす
+        テストケースを生成する。
+
+        Args:
+            condition: 元の条件式
+            sub_conditions: 分割された条件のリスト
+
+        Returns:
+            (条件式, 真偽値リスト) のタプルのリスト
+        """
+        num_conditions = len(sub_conditions)
+        truth_combinations = []
+
+        # 条件式の構造を解析
+        # 最も外側の&&で分割してOR部分を検出
+        and_parts = self._split_by_and(condition)
+
+        if len(and_parts) >= 2:
+            # A && B && C のような構造
+            # OR条件を含む部分を検出
+            or_groups = []
+            single_conditions = []
+
+            for part in and_parts:
+                if '||' in part:
+                    # OR条件を含む部分
+                    or_conditions = self._split_by_or(part)
+                    or_groups.append(or_conditions)
+                else:
+                    # 単一条件
+                    single_conditions.append(part)
+
+            # MC/DCテストケースを生成
+            if or_groups:
+                # A && (B1 || B2 || ... || Bn) && C のケース
+                # 基本ケース: 最初のOR条件のみ真、他のOR条件は偽、AND条件は真
+                base_case = []
+                current_idx = 0
+
+                for i, part in enumerate(and_parts):
+                    if '||' not in part:
+                        # 単一AND条件は真に
+                        base_case.append('T')
+                        current_idx += 1
+                    else:
+                        # OR条件の最初だけ真に、残りは偽
+                        or_count = part.count('||') + 1
+                        base_case.append('T')  # 最初のOR条件のみT
+                        for _ in range(or_count - 1):
+                            base_case.append('F')  # 残りのOR条件はF
+                        current_idx += or_count
+
+                truth_combinations.append((condition, [''.join(base_case)]))
+
+                # 各AND条件の独立性をテスト
+                # 単一AND条件の位置を記録（最初のAND条件のみ）
+                and_condition_indices = []
+                current_idx = 0
+
+                for i, part in enumerate(and_parts):
+                    if '||' not in part:
+                        # 単一AND条件の位置を記録
+                        and_condition_indices.append((i, current_idx))
+                        current_idx += 1
+                    else:
+                        # OR条件グループをスキップ
+                        or_count = part.count('||') + 1
+                        current_idx += or_count
+
+                # 最初のAND条件を偽にするテストケース（通常は最初のAND条件）
+                if and_condition_indices:
+                    first_and_idx = and_condition_indices[0][1]
+                    test_case = base_case.copy()
+                    test_case[first_and_idx] = 'F'
+                    truth_combinations.append((condition, [''.join(test_case)]))
+
+                # OR条件の独立性をテスト
+                # 全てのOR条件を偽にする（OR全体が偽になる）
+                or_false_case = []
+                current_idx = 0
+                for part in and_parts:
+                    if '||' in part:
+                        or_count = part.count('||') + 1
+                        # 全てのOR条件を偽に
+                        for j in range(or_count):
+                            or_false_case.append('F')
+                        current_idx += or_count
+                    else:
+                        # AND条件は真に
+                        or_false_case.append('T')
+                        current_idx += 1
+                truth_combinations.append((condition, [''.join(or_false_case)]))
+
+                # 残りのAND条件を偽にするテストケース（2番目以降）
+                for part_idx, idx in and_condition_indices[1:]:
+                    test_case = base_case.copy()
+                    test_case[idx] = 'F'
+                    truth_combinations.append((condition, [''.join(test_case)]))
+
+                # 各OR条件（2番目以降）を真にするテストケース
+                # まず、各ANDパートの開始インデックスを記録
+                and_part_indices = []
+                current_idx = 0
+                for part in and_parts:
+                    and_part_indices.append(current_idx)
+                    if '||' in part:
+                        or_count = part.count('||') + 1
+                        current_idx += or_count
+                    else:
+                        current_idx += 1
+
+                # OR条件グループを探して、各OR条件（2番目以降）を真にする
+                for part_idx, part in enumerate(and_parts):
+                    if '||' in part:
+                        or_count = part.count('||') + 1
+                        or_start_idx = and_part_indices[part_idx]
+
+                        # 2番目以降のOR条件を個別に真にする
+                        for j in range(1, or_count):
+                            test_case = []
+                            for p_idx, p in enumerate(and_parts):
+                                p_start_idx = and_part_indices[p_idx]
+
+                                if '||' not in p:
+                                    # 単一AND条件は真に
+                                    test_case.append('T')
+                                else:
+                                    # OR条件グループ
+                                    oc = p.count('||') + 1
+                                    if p_idx == part_idx:
+                                        # このOR条件グループ: j番目のみ真、残りは偽
+                                        for k in range(oc):
+                                            if k == j:
+                                                test_case.append('T')
+                                            else:
+                                                test_case.append('F')
+                                    else:
+                                        # 他のOR条件グループ: 最初のみ真、残りは偽
+                                        test_case.append('T')
+                                        for k in range(1, oc):
+                                            test_case.append('F')
+
+                            truth_combinations.append((condition, [''.join(test_case)]))
+            else:
+                # OR条件がない場合は通常のAND処理
+                truth_combinations.append((condition, ['T' * num_conditions]))
+                for i in range(num_conditions):
+                    truth_value = ['T'] * num_conditions
+                    truth_value[i] = 'F'
+                    truth_combinations.append((condition, [''.join(truth_value)]))
+        else:
+            # 単純な構造の場合は全組み合わせ
             truth_values = list(product(['T', 'F'], repeat=num_conditions))
             for tv in truth_values:
                 truth_combinations.append((condition, [''.join(tv)]))
 
-        return truth_combinations if truth_combinations else [(condition, ["T", "F"])]
+        return truth_combinations
+
+    def _split_by_and(self, condition: str) -> List[str]:
+        """
+        条件式を最も外側の&&で分割する
+
+        Args:
+            condition: 条件式
+
+        Returns:
+            分割された条件のリスト
+        """
+        # 括弧の深さを追跡しながら&&で分割
+        parts = []
+        current_part = ""
+        depth = 0
+        i = 0
+
+        while i < len(condition):
+            char = condition[i]
+
+            if char == '(':
+                depth += 1
+                current_part += char
+            elif char == ')':
+                depth -= 1
+                current_part += char
+            elif char == '&' and i + 1 < len(condition) and condition[i + 1] == '&' and depth == 0:
+                # 最も外側の&&を見つけた
+                if current_part.strip():
+                    parts.append(current_part.strip())
+                current_part = ""
+                i += 1  # &&の2文字目をスキップ
+            else:
+                current_part += char
+
+            i += 1
+
+        if current_part.strip():
+            parts.append(current_part.strip())
+
+        return parts
+
+    def _split_by_or(self, condition: str) -> List[str]:
+        """
+        条件式を最も外側の||で分割する（括弧を除去）
+
+        Args:
+            condition: 条件式
+
+        Returns:
+            分割された条件のリスト
+        """
+        # 外側の括弧を除去
+        condition = condition.strip()
+        if condition.startswith('(') and condition.endswith(')'):
+            # 対応する括弧かチェック
+            depth = 0
+            for i, char in enumerate(condition):
+                if char == '(':
+                    depth += 1
+                elif char == ')':
+                    depth -= 1
+                if depth == 0 and i == len(condition) - 1:
+                    condition = condition[1:-1].strip()
+                    break
+
+        # 括弧の深さを追跡しながら||で分割
+        parts = []
+        current_part = ""
+        depth = 0
+        i = 0
+
+        while i < len(condition):
+            char = condition[i]
+
+            if char == '(':
+                depth += 1
+                current_part += char
+            elif char == ')':
+                depth -= 1
+                current_part += char
+            elif char == '|' and i + 1 < len(condition) and condition[i + 1] == '|' and depth == 0:
+                # 最も外側の||を見つけた
+                if current_part.strip():
+                    parts.append(current_part.strip())
+                current_part = ""
+                i += 1  # ||の2文字目をスキップ
+            else:
+                current_part += char
+
+            i += 1
+
+        if current_part.strip():
+            parts.append(current_part.strip())
+
+        return parts
 
     def _split_conditions(self, condition: str) -> List[str]:
         """
@@ -149,6 +405,38 @@ class MCDCAnalyzer:
 
         # 論理演算子を除外して条件だけを抽出
         conditions = [p.strip() for p in parts if p.strip() and p not in ['||', '&&']]
+
+        return conditions if conditions else [condition]
+
+    def _split_conditions_detailed(self, condition: str) -> List[str]:
+        """
+        複合条件式を詳細に個別の条件に分割する（ネスト構造対応）
+
+        例: "(Utx104.Utm11.Utm14 == UtD27) && ((UtD39 == 1) || (UtD39 == 2)) && (UtD38 == 0)"
+             -> ["Utx104.Utm11.Utm14 == UtD27", "UtD39 == 1", "UtD39 == 2", "UtD38 == 0"]
+        """
+        conditions = []
+
+        # ANDで最上位レベルを分割
+        and_parts = self._split_by_and(condition)
+
+        for part in and_parts:
+            # 各部分がOR条件を含むかチェック
+            if '||' in part:
+                # OR条件を分割
+                or_conditions = self._split_by_or(part)
+                for or_cond in or_conditions:
+                    # 括弧を除去して追加
+                    clean_cond = or_cond.strip()
+                    if clean_cond.startswith('(') and clean_cond.endswith(')'):
+                        clean_cond = clean_cond[1:-1].strip()
+                    conditions.append(clean_cond)
+            else:
+                # 単一条件（括弧を除去）
+                clean_cond = part.strip()
+                if clean_cond.startswith('(') and clean_cond.endswith(')'):
+                    clean_cond = clean_cond[1:-1].strip()
+                conditions.append(clean_cond)
 
         return conditions if conditions else [condition]
 
