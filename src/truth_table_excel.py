@@ -8,7 +8,28 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from typing import List
+import subprocess
+from datetime import datetime
 from mcdc_analyzer import TruthTable, TestCase
+
+# バージョン情報
+VERSION = "1.0.0"
+
+def get_git_revision():
+    """Gitリビジョン情報を取得する"""
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        else:
+            return "unknown"
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return "unknown"
 
 
 class TruthTableExcelGenerator:
@@ -29,8 +50,13 @@ class TruthTableExcelGenerator:
         ws = self.workbook.active
         ws.title = "Truth Table"
 
+        # リビジョン情報を取得
+        revision = get_git_revision()
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         # スタイル定義
         header_font = Font(bold=True, size=11)
+        info_font = Font(size=9, italic=True)
         header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
         border = Border(
             left=Side(style='thin'),
@@ -41,10 +67,17 @@ class TruthTableExcelGenerator:
         center_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         left_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
-        # ヘッダー行
+        # メタ情報行（0行目）
+        ws.merge_cells('A1:D1')
+        meta_cell = ws['A1']
+        meta_cell.value = f"C Unit Test Generator v{VERSION} | Revision: {revision} | Generated: {timestamp}"
+        meta_cell.font = info_font
+        meta_cell.alignment = center_alignment
+
+        # ヘッダー行（2行目）
         headers = ["No.", "真偽", "判定文", "期待値"]
         for col_num, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col_num)
+            cell = ws.cell(row=2, column=col_num)
             cell.value = header
             cell.font = header_font
             cell.fill = header_fill
@@ -57,8 +90,8 @@ class TruthTableExcelGenerator:
         ws.column_dimensions['C'].width = 60  # 判定文
         ws.column_dimensions['D'].width = 20  # 期待値
 
-        # データ行
-        for row_num, test_case in enumerate(truth_table.test_cases, 2):
+        # データ行（3行目から）
+        for row_num, test_case in enumerate(truth_table.test_cases, 3):
             # No.
             cell = ws.cell(row=row_num, column=1)
             cell.value = test_case.test_number
@@ -84,7 +117,8 @@ class TruthTableExcelGenerator:
             cell.alignment = center_alignment
 
         # 行の高さを自動調整
-        for row in ws.iter_rows(min_row=2, max_row=len(truth_table.test_cases) + 1):
+        ws.row_dimensions[1].height = 20  # メタ情報行
+        for row in ws.iter_rows(min_row=3, max_row=len(truth_table.test_cases) + 2):
             ws.row_dimensions[row[0].row].height = 30
 
         # 保存
@@ -119,8 +153,13 @@ class TruthTableExcelGenerator:
         sheet_name = truth_table.function_name[:31]
         ws = self.workbook.create_sheet(title=sheet_name)
 
+        # リビジョン情報を取得
+        revision = get_git_revision()
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         # スタイル定義
         header_font = Font(bold=True, size=11)
+        info_font = Font(size=9, italic=True)
         header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
         border = Border(
             left=Side(style='thin'),
@@ -131,10 +170,17 @@ class TruthTableExcelGenerator:
         center_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         left_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
-        # ヘッダー行
+        # メタ情報行（1行目）
+        ws.merge_cells('A1:D1')
+        meta_cell = ws['A1']
+        meta_cell.value = f"C Unit Test Generator v{VERSION} | Revision: {revision} | Generated: {timestamp}"
+        meta_cell.font = info_font
+        meta_cell.alignment = center_alignment
+
+        # ヘッダー行（2行目）
         headers = ["No.", "真偽", "判定文", "期待値"]
         for col_num, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col_num)
+            cell = ws.cell(row=2, column=col_num)
             cell.value = header
             cell.font = header_font
             cell.fill = header_fill
@@ -147,8 +193,8 @@ class TruthTableExcelGenerator:
         ws.column_dimensions['C'].width = 60
         ws.column_dimensions['D'].width = 20
 
-        # データ行
-        for row_num, test_case in enumerate(truth_table.test_cases, 2):
+        # データ行（3行目から）
+        for row_num, test_case in enumerate(truth_table.test_cases, 3):
             # No.
             cell = ws.cell(row=row_num, column=1)
             cell.value = test_case.test_number
@@ -174,7 +220,8 @@ class TruthTableExcelGenerator:
             cell.alignment = center_alignment
 
         # 行の高さ
-        for row in ws.iter_rows(min_row=2, max_row=len(truth_table.test_cases) + 1):
+        ws.row_dimensions[1].height = 20  # メタ情報行
+        for row in ws.iter_rows(min_row=3, max_row=len(truth_table.test_cases) + 2):
             ws.row_dimensions[row[0].row].height = 30
 
 

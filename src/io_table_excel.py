@@ -9,7 +9,28 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from typing import List, Dict, Set
 import re
+import subprocess
+from datetime import datetime
 from mcdc_analyzer import TruthTable, TestCase
+
+# バージョン情報
+VERSION = "1.0.0"
+
+def get_git_revision():
+    """Gitリビジョン情報を取得する"""
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        else:
+            return "unknown"
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return "unknown"
 
 
 class IOTableExcelGenerator:
@@ -60,6 +81,10 @@ class IOTableExcelGenerator:
         ws = self.workbook.active
         ws.title = "IO Table"
 
+        # リビジョン情報を取得
+        revision = get_git_revision()
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         # 変数を抽出
         if input_vars is None:
             all_vars = sorted(self._extract_variables(truth_table.test_cases))
@@ -72,6 +97,7 @@ class IOTableExcelGenerator:
 
         # スタイル定義
         header_font = Font(bold=True, size=11)
+        info_font = Font(size=9, italic=True)
         header_fill = PatternFill(start_color="CCCCCC", end_color="CCCCCC", fill_type="solid")
         input_fill = PatternFill(start_color="E0F0FF", end_color="E0F0FF", fill_type="solid")
         output_fill = PatternFill(start_color="FFE0E0", end_color="FFE0E0", fill_type="solid")
@@ -84,43 +110,51 @@ class IOTableExcelGenerator:
         center_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
         left_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
-        # ヘッダー行1: INPUT/OUTPUT
-        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=2)
-        cell = ws.cell(row=1, column=1)
+        # メタ情報行（1行目）
+        total_cols = 2 + len(input_vars) + len(output_vars)
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(total_cols, 4))
+        meta_cell = ws['A1']
+        meta_cell.value = f"C Unit Test Generator v{VERSION} | Revision: {revision} | Generated: {timestamp}"
+        meta_cell.font = info_font
+        meta_cell.alignment = center_alignment
+
+        # ヘッダー行1: INPUT/OUTPUT（2行目に移動）
+        ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=2)
+        cell = ws.cell(row=2, column=1)
         cell.value = ""
         cell.border = border
 
-        # INPUT列のマージ
+        # INPUT列のマージ（2行目）
         input_start_col = 3
         input_end_col = input_start_col + len(input_vars) - 1 if input_vars else input_start_col
 
         if input_vars:
-            ws.merge_cells(start_row=1, start_column=input_start_col, end_row=1, end_column=input_end_col)
-            cell = ws.cell(row=1, column=input_start_col)
+            ws.merge_cells(start_row=2, start_column=input_start_col, end_row=2, end_column=input_end_col)
+            cell = ws.cell(row=2, column=input_start_col)
             cell.value = "INPUT"
             cell.font = header_font
             cell.fill = input_fill
             cell.border = border
             cell.alignment = center_alignment
 
-        # OUTPUT列のマージ
+        # OUTPUT列のマージ（2行目）
         output_start_col = input_end_col + 1
         output_end_col = output_start_col + len(output_vars) - 1 if output_vars else output_start_col
 
         if output_vars:
-            ws.merge_cells(start_row=1, start_column=output_start_col, end_row=1, end_column=output_end_col)
-            cell = ws.cell(row=1, column=output_start_col)
+            ws.merge_cells(start_row=2, start_column=output_start_col, end_row=2, end_column=output_end_col)
+            cell = ws.cell(row=2, column=output_start_col)
             cell.value = "OUTPUT"
             cell.font = header_font
             cell.fill = output_fill
             cell.border = border
             cell.alignment = center_alignment
 
-        # ヘッダー行2: 変数名
+        # ヘッダー行3: 変数名（3行目に移動）
         headers = ["No", "テスト名"] + input_vars + output_vars
 
         for col_num, header in enumerate(headers, 1):
-            cell = ws.cell(row=2, column=col_num)
+            cell = ws.cell(row=3, column=col_num)
             cell.value = header
             cell.font = header_font
 
@@ -146,8 +180,8 @@ class IOTableExcelGenerator:
             col_letter = get_column_letter(i)
             ws.column_dimensions[col_letter].width = 12
 
-        # データ行
-        for row_num, test_case in enumerate(truth_table.test_cases, 3):
+        # データ行（4行目から）
+        for row_num, test_case in enumerate(truth_table.test_cases, 4):
             # No
             cell = ws.cell(row=row_num, column=1)
             cell.value = test_case.test_number
@@ -178,10 +212,11 @@ class IOTableExcelGenerator:
                 cell.alignment = center_alignment
 
         # 行の高さ
-        ws.row_dimensions[1].height = 20
-        ws.row_dimensions[2].height = 25
+        ws.row_dimensions[1].height = 20  # メタ情報行
+        ws.row_dimensions[2].height = 20  # INPUT/OUTPUT行
+        ws.row_dimensions[3].height = 25  # 変数名行
 
-        for row in range(3, len(truth_table.test_cases) + 3):
+        for row in range(4, len(truth_table.test_cases) + 4):
             ws.row_dimensions[row].height = 25
 
         # 保存

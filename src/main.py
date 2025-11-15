@@ -12,7 +12,9 @@ C言語単体テスト自動生成ツール メインスクリプト
 import sys
 import os
 import argparse
+import subprocess
 from pathlib import Path
+from datetime import datetime
 
 # 同じディレクトリのモジュールをインポート
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -22,6 +24,45 @@ from mcdc_analyzer import MCDCAnalyzer
 from truth_table_excel import TruthTableExcelGenerator
 from unity_test_generator import UnityTestGenerator
 from io_table_excel import IOTableExcelGenerator
+
+# バージョン情報
+VERSION = "1.0.0"
+
+def get_git_revision():
+    """Gitリビジョン情報を取得する"""
+    try:
+        # カレントディレクトリを取得
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        repo_dir = os.path.dirname(script_dir)
+
+        # git rev-parseでコミットハッシュを取得
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+
+        if result.returncode == 0:
+            commit_hash = result.stdout.strip()
+
+            # ブランチ名を取得
+            branch_result = subprocess.run(
+                ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                cwd=repo_dir,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            branch = branch_result.stdout.strip() if branch_result.returncode == 0 else "unknown"
+
+            return f"{commit_hash} ({branch})"
+        else:
+            return "unknown"
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return "unknown"
 
 
 class CUnitTestGenerator:
@@ -36,8 +77,14 @@ class CUnitTestGenerator:
 
     def run(self):
         """メイン処理を実行"""
+        # リビジョン情報を取得
+        revision = get_git_revision()
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         print("=" * 80)
         print("C言語単体テスト自動生成ツール")
+        print(f"Version: {VERSION} | Revision: {revision}")
+        print(f"Generated: {timestamp}")
         print("=" * 80)
         print()
 
