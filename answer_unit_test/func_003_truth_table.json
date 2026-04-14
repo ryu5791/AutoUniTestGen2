@@ -1,0 +1,138 @@
+{
+  "function_name": "func_003",
+  "parameters": [
+    "a",
+    "b",
+    "c"
+  ],
+  "if_statements": [
+    {
+      "if_id": "IF1",
+      "condition_expression": "a >= 10 && b < 5",
+      "atomic_conditions": [
+        {
+          "id": "A",
+          "expression": "a >= 10",
+          "variable": "a",
+          "operator": ">=",
+          "threshold": 10
+        },
+        {
+          "id": "B",
+          "expression": "b < 5",
+          "variable": "b",
+          "operator": "<",
+          "threshold": 5
+        }
+      ],
+      "test_cases": [
+        {
+          "tc_id": "TC1",
+          "condition_values": {
+            "A": true,
+            "B": true
+          },
+          "decision": true,
+          "param_values": {
+            "a": 10,
+            "b": 4,
+            "c": 1
+          },
+          "expected_return": 1
+        },
+        {
+          "tc_id": "TC2",
+          "condition_values": {
+            "A": false,
+            "B": true
+          },
+          "decision": false,
+          "param_values": {
+            "a": 9,
+            "b": 4,
+            "c": 1
+          },
+          "expected_return": 0
+        },
+        {
+          "tc_id": "TC3",
+          "condition_values": {
+            "A": true,
+            "B": false
+          },
+          "decision": false,
+          "param_values": {
+            "a": 10,
+            "b": 5,
+            "c": 1
+          },
+          "expected_return": 2
+        }
+      ]
+    },
+    {
+      "if_id": "IF2",
+      "condition_expression": "b >= 5 || c == 0",
+      "atomic_conditions": [
+        {
+          "id": "C",
+          "expression": "b >= 5",
+          "variable": "b",
+          "operator": ">=",
+          "threshold": 5
+        },
+        {
+          "id": "D",
+          "expression": "c == 0",
+          "variable": "c",
+          "operator": "==",
+          "threshold": 0
+        }
+      ],
+      "test_cases": [
+        {
+          "tc_id": "TC4",
+          "condition_values": {
+            "C": true,
+            "D": false
+          },
+          "decision": true,
+          "param_values": {
+            "a": 9,
+            "b": 5,
+            "c": 1
+          },
+          "expected_return": 2
+        },
+        {
+          "tc_id": "TC5",
+          "condition_values": {
+            "C": false,
+            "D": true
+          },
+          "decision": true,
+          "param_values": {
+            "a": 9,
+            "b": 4,
+            "c": 0
+          },
+          "expected_return": 2
+        },
+        {
+          "tc_id": "TC6",
+          "condition_values": {
+            "C": false,
+            "D": false
+          },
+          "decision": false,
+          "param_values": {
+            "a": 9,
+            "b": 4,
+            "c": 1
+          },
+          "expected_return": 0
+        }
+      ]
+    }
+  ]
+}
