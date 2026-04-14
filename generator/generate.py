@@ -477,7 +477,11 @@ def main():
         test_cases = compute_mcdc_test_cases(conditions, norm_expr)
 
         # 期待リターン値を関数シミュレーションで決定
+        # 未設定のパラメータは 0 をデフォルトとして補完する（simulate_function の正確な評価のため）
         for tc in test_cases:
+            full_params = {p: 0 for p in parameters}
+            full_params.update(tc['param_values'])
+            tc['param_values'] = full_params
             tc['expected_return'] = simulate_function(source, tc['param_values'])
             tc['if_id'] = if_id
             tc['condition_expression'] = cond_str
