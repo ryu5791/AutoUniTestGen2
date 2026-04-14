@@ -1,0 +1,73 @@
+{
+  "function_name": "func_001",
+  "parameters": [
+    "a",
+    "b"
+  ],
+  "if_statements": [
+    {
+      "if_id": "IF1",
+      "condition_expression": "a > 0 && b > 0",
+      "atomic_conditions": [
+        {
+          "id": "A",
+          "expression": "a > 0",
+          "variable": "a",
+          "operator": ">",
+          "threshold": 0
+        },
+        {
+          "id": "B",
+          "expression": "b > 0",
+          "variable": "b",
+          "operator": ">",
+          "threshold": 0
+        }
+      ],
+      "test_cases": [
+        {
+          "tc_id": "TC1",
+          "condition_values": {
+            "A": true,
+            "B": true
+          },
+          "decision": true,
+          "param_values": {
+            "a": 1,
+            "b": 1
+          },
+          "expected_return": 1,
+          "mcdc_note": "A: TC1-TC2, B: TC1-TC3"
+        },
+        {
+          "tc_id": "TC2",
+          "condition_values": {
+            "A": false,
+            "B": true
+          },
+          "decision": false,
+          "param_values": {
+            "a": 0,
+            "b": 1
+          },
+          "expected_return": 0,
+          "mcdc_note": "A independence pair"
+        },
+        {
+          "tc_id": "TC3",
+          "condition_values": {
+            "A": true,
+            "B": false
+          },
+          "decision": false,
+          "param_values": {
+            "a": 1,
+            "b": 0
+          },
+          "expected_return": 0,
+          "mcdc_note": "B independence pair"
+        }
+      ]
+    }
+  ]
+}
