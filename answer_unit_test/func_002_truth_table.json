@@ -1,0 +1,99 @@
+{
+  "function_name": "func_002",
+  "parameters": [
+    "a",
+    "b",
+    "c"
+  ],
+  "if_statements": [
+    {
+      "if_id": "IF1",
+      "condition_expression": "(a > 0 && b > 0) || (c > 5)",
+      "atomic_conditions": [
+        {
+          "id": "A",
+          "expression": "a > 0",
+          "variable": "a",
+          "operator": ">",
+          "threshold": 0
+        },
+        {
+          "id": "B",
+          "expression": "b > 0",
+          "variable": "b",
+          "operator": ">",
+          "threshold": 0
+        },
+        {
+          "id": "C",
+          "expression": "c > 5",
+          "variable": "c",
+          "operator": ">",
+          "threshold": 5
+        }
+      ],
+      "test_cases": [
+        {
+          "tc_id": "TC1",
+          "condition_values": {
+            "A": true,
+            "B": true,
+            "C": false
+          },
+          "decision": true,
+          "param_values": {
+            "a": 1,
+            "b": 1,
+            "c": 5
+          },
+          "expected_return": 1
+        },
+        {
+          "tc_id": "TC2",
+          "condition_values": {
+            "A": false,
+            "B": true,
+            "C": false
+          },
+          "decision": false,
+          "param_values": {
+            "a": 0,
+            "b": 1,
+            "c": 5
+          },
+          "expected_return": 0
+        },
+        {
+          "tc_id": "TC3",
+          "condition_values": {
+            "A": true,
+            "B": false,
+            "C": false
+          },
+          "decision": false,
+          "param_values": {
+            "a": 1,
+            "b": 0,
+            "c": 5
+          },
+          "expected_return": 0
+        },
+        {
+          "tc_id": "TC4",
+          "condition_values": {
+            "A": true,
+            "B": false,
+            "C": true
+          },
+          "decision": true,
+          "param_values": {
+            "a": 1,
+            "b": 0,
+            "c": 6
+          },
+          "expected_return": 1
+        }
+      ]
+    }
+  ]
+}

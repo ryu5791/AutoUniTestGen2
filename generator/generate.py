@@ -240,38 +240,82 @@ def compute_mcdc_test_cases(conditions: list, norm_expr: str):
 
 # ─────────────────────────── 関数シミュレーション ───────────────────────────
 
+def _find_matching_paren(text: str, start: int) -> int:
+    """start位置の'('に対応する')'の位置を返す"""
+    depth = 1
+    i = start + 1
+    while i < len(text) and depth > 0:
+        if text[i] == '(':
+            depth += 1
+        elif text[i] == ')':
+            depth -= 1
+        i += 1
+    return i - 1  # 閉じ括弧の位置
+
+
+def _find_matching_brace(text: str, start: int) -> int:
+    """start位置の'{'に対応する'}'の位置を返す"""
+    depth = 1
+    i = start + 1
+    while i < len(text) and depth > 0:
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+        i += 1
+    return i - 1  # 閉じ括弧の位置
+
+
 def simulate_function(source: str, param_values: dict) -> int:
     """
     Cのif文を順番に評価して、最初にマッチした return 値を返す
     マッチしなければ最後の return 値を返す
+    括弧カウンティングでネストされた条件式にも対応する
     """
-    # 関数本体を抽出
-    m = re.search(r'\{([\s\S]+)\}', source)
-    if not m:
+    # 関数本体を抽出（最初の { から最後の } まで）
+    brace_start = source.find('{')
+    if brace_start == -1:
         return 0
-    body = m.group(1)
+    brace_end = _find_matching_brace(source, brace_start)
+    body = source[brace_start + 1:brace_end]
 
     # コメントを除去
     body = re.sub(r'//[^\n]*', '', body)
     body = re.sub(r'/\*[\s\S]*?\*/', '', body)
 
-    # if文とそのブロックを順番に処理
-    # パターン: if (条件) { ... return N; ... }
-    if_pattern = re.compile(
-        r'if\s*\(([^)]+(?:\([^)]*\)[^)]*)*)\)\s*\{([^}]*)\}',
-        re.DOTALL
-    )
+    # if文を括弧カウンティングで解析
+    pos = 0
+    while pos < len(body):
+        # "if (" を探す（else if は除外）
+        m_if = re.search(r'(?<![a-z_])if\s*\(', body[pos:])
+        if not m_if:
+            break
 
-    for m_if in if_pattern.finditer(body):
-        cond_str = m_if.group(1).strip()
-        block = m_if.group(2)
+        abs_if_start = pos + m_if.start()
+        abs_paren_open = pos + m_if.end() - 1  # '(' の位置
 
         # else if を除外
-        pre = body[:m_if.start()].rstrip()
+        pre = body[:abs_if_start].rstrip()
         if pre.endswith('else'):
+            pos = abs_paren_open + 1
             continue
 
-        # 条件を実際の値で評価
+        # 条件式の閉じ括弧を括弧カウンティングで探す
+        paren_close = _find_matching_paren(body, abs_paren_open)
+        cond_str = body[abs_paren_open + 1:paren_close].strip()
+
+        # その後の { ... } ブロックを探す
+        rest = body[paren_close + 1:]
+        m_brace = re.search(r'\s*\{', rest)
+        if not m_brace:
+            pos = paren_close + 1
+            continue
+
+        abs_brace_open = paren_close + 1 + rest.index('{')
+        brace_close = _find_matching_brace(body, abs_brace_open)
+        block = body[abs_brace_open + 1:brace_close]
+
+        # 条件式を実際の値で評価
         cond_eval = cond_str
         for var, val in sorted(param_values.items(), key=lambda x: len(x[0]), reverse=True):
             cond_eval = re.sub(r'\b' + re.escape(var) + r'\b', str(val), cond_eval)
@@ -287,6 +331,8 @@ def simulate_function(source: str, param_values: dict) -> int:
             ret_m = re.search(r'return\s+(-?\d+)\s*;', block)
             if ret_m:
                 return int(ret_m.group(1))
+
+        pos = brace_close + 1
 
     # デフォルトのreturn値（最後のreturn文）
     all_returns = re.findall(r'return\s+(-?\d+)\s*;', body)
