@@ -1,0 +1,120 @@
+{
+  "function_name": "func_006",
+  "parameters": [
+    "a",
+    "b",
+    "c",
+    "d"
+  ],
+  "if_statements": [
+    {
+      "if_id": "IF1",
+      "condition_expression": "a > 0 && b >= 3 && c != 0",
+      "atomic_conditions": [
+        {
+          "id": "A",
+          "expression": "a > 0",
+          "variable": "a",
+          "operator": ">",
+          "threshold": 0
+        },
+        {
+          "id": "B",
+          "expression": "b >= 3",
+          "variable": "b",
+          "operator": ">=",
+          "threshold": 3
+        },
+        {
+          "id": "C",
+          "expression": "c != 0",
+          "variable": "c",
+          "operator": "!=",
+          "threshold": 0
+        }
+      ],
+      "test_cases": [
+        {
+          "tc_id": "TC1",
+          "condition_values": {"A": true, "B": true, "C": true},
+          "decision": true,
+          "param_values": {"a": 1, "b": 3, "c": 1, "d": 0},
+          "expected_return": 1
+        },
+        {
+          "tc_id": "TC2",
+          "condition_values": {"A": true, "B": true, "C": false},
+          "decision": false,
+          "param_values": {"a": 1, "b": 3, "c": 0, "d": 0},
+          "expected_return": 0
+        },
+        {
+          "tc_id": "TC3",
+          "condition_values": {"A": true, "B": false, "C": true},
+          "decision": false,
+          "param_values": {"a": 1, "b": 2, "c": 1, "d": 0},
+          "expected_return": 0
+        },
+        {
+          "tc_id": "TC4",
+          "condition_values": {"A": false, "B": true, "C": true},
+          "decision": false,
+          "param_values": {"a": 0, "b": 3, "c": 1, "d": 0},
+          "expected_return": 0
+        }
+      ],
+      "independence_pairs": {
+        "A": [["TC1", "TC4"]],
+        "B": [["TC1", "TC3"]],
+        "C": [["TC1", "TC2"]]
+      }
+    },
+    {
+      "if_id": "IF2",
+      "condition_expression": "b < 0 || d > 10",
+      "atomic_conditions": [
+        {
+          "id": "A",
+          "expression": "b < 0",
+          "variable": "b",
+          "operator": "<",
+          "threshold": 0
+        },
+        {
+          "id": "B",
+          "expression": "d > 10",
+          "variable": "d",
+          "operator": ">",
+          "threshold": 10
+        }
+      ],
+      "test_cases": [
+        {
+          "tc_id": "TC1",
+          "condition_values": {"A": true, "B": false},
+          "decision": true,
+          "param_values": {"a": 0, "b": -1, "c": 0, "d": 10},
+          "expected_return": 2
+        },
+        {
+          "tc_id": "TC2",
+          "condition_values": {"A": false, "B": true},
+          "decision": true,
+          "param_values": {"a": 0, "b": 0, "c": 0, "d": 11},
+          "expected_return": 2
+        },
+        {
+          "tc_id": "TC3",
+          "condition_values": {"A": false, "B": false},
+          "decision": false,
+          "param_values": {"a": 0, "b": 0, "c": 0, "d": 10},
+          "expected_return": 0
+        }
+      ],
+      "independence_pairs": {
+        "A": [["TC1", "TC3"]],
+        "B": [["TC2", "TC3"]]
+      }
+    }
+  ]
+}
